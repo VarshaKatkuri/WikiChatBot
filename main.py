@@ -117,6 +117,7 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.tools import Tool
 from langchain_openai import ChatOpenAI
 from langchain.memory import ConversationBufferWindowMemory
+from flask_cors import CORS
 import os
 from flask import Flask, request, jsonify, render_template # Import Flask for the web server
 # Load environment variables from .env file (ensure .env file exists in your project)
@@ -124,6 +125,8 @@ load_dotenv()
 
 # Initialize Flask app
 app = Flask(__name__)
+
+CORS(app)
 
 # Define Tools
 def get_current_time(*args, **kwargs):
