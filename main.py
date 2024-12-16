@@ -20,7 +20,7 @@ app.secret_key = "your_secret_key"  # Update with a secure key
 bcrypt = Bcrypt(app)
  
 # Enable CORS for the entire app
-CORS(app)  # Allow all origins by default
+CORS(app, supports_credentials=True)  # Allow all origins by default
  
 # If you want to restrict CORS to specific origins, use:
 # CORS(app, resources={r"/*": {"origins": ["http://your-allowed-origin.com"]}})
