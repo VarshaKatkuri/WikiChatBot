@@ -69,6 +69,21 @@
     button:hover {
       background-color: #45a049;
     }
+
+     /* Updated Time Display Style */
+     .time-display {
+      text-align: center;
+      font-size: 18px;
+      color: #ffffff;
+      margin-top: 20px;
+      font-style: italic;
+      background: linear-gradient(135deg, #4CAF50, #8BC34A);
+      padding: 15px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      font-weight: bold;
+      letter-spacing: 0.5px;
+    }
   </style>
 </head>
 <body>
@@ -79,6 +94,9 @@
     <div style="display: flex;">
       <input type="text" id="input" name="input" placeholder="Type your message..." />
       <button onclick="sendRequest()">Send</button>
+    </div>
+    <div class="time-display" id="current-time">
+      Loading time...
     </div>
   </div>
 
@@ -124,6 +142,25 @@
       // Scroll to the bottom of the chat box
       chatBox.scrollTop = chatBox.scrollHeight;
     }
+
+    // Function to fetch current time from the server
+    function fetchCurrentTime() {
+      fetch("http://localhost:8125/current_time")
+        .then(response => response.json())
+        .then(data => {
+          const currentTimeElement = document.getElementById("current-time");
+          currentTimeElement.textContent = `Current time: ${data.current_time}`;
+        })
+        .catch(error => {
+          console.error("Error fetching time:", error);
+        });
+    }
+
+    // Fetch the current time every 30 seconds
+    setInterval(fetchCurrentTime, 30000);
+
+    // Fetch time when the page loads
+    fetchCurrentTime();
   </script>
 </body>
 </html>

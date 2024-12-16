@@ -1,115 +1,3 @@
-# from dotenv import load_dotenv
-# from langchain import hub
-# from langchain.agents import AgentExecutor, create_structured_chat_agent
-# from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
-# from langchain_core.tools import Tool
-# from langchain_openai import ChatOpenAI
-# from langchain.memory import ConversationBufferWindowMemory
-
-
-# import os
-# # Load environment variables from .env file
-# load_dotenv()
-
-
-# # Define Tools
-# def get_current_time(*args, **kwargs):
-#     """Returns the current time in H:MM AM/PM format."""
-#     import datetime
-
-#     now = datetime.datetime.now()
-#     return now.strftime("%I:%M %p")
-
-
-# def search_wikipedia(query):
-#     """Searches Wikipedia and returns the summary of the first result."""
-#     from wikipedia import summary
-
-#     try:
-#         # Limit to two sentences for brevity
-#         return summary(query, sentences=2)
-#     except:
-#         return "I couldn't find any information on that."
-
-
-# # Define the tools that the agent can use
-# tools = [
-#     Tool(
-#         name="Time",
-#         func=get_current_time,
-#         description="Useful for when you need to know the current time.",
-#     ),
-#     Tool(
-#         name="Wikipedia",
-#         func=search_wikipedia,
-#         description="Useful for when you need to know information about a topic.",
-#     ),
-# ]
-
-# # Load the correct JSON Chat Prompt from the hub
-# prompt = hub.pull("hwchase17/structured-chat-agent")
-# # Load environment variables from .env file
-# load_dotenv()
-
-
-
-# # Initialize a ChatOpenAI model
-# llm = ChatOpenAI(model="gpt-4")
-
-# # Create a structured Chat Agent with Conversation Buffer Memory
-# # ConversationBufferMemory stores the conversation history, allowing the agent to maintain context across interactions
-# # memory = ConversationBufferMemory(
-# #     memory_key="chat_history", return_messages=True)
-
-
-# # # Use it in memory
-# # memory = ConversationBufferMemory(
-# #     memory_key="chat_history",
-# #     return_messages=True
-# # )
-
-
-# memory = ConversationBufferWindowMemory(
-#     memory_key="chat_history",
-#     return_messages=True,
-#     k=5  # Specify how many past interactions to keep in memory
-# )
-
-# # create_structured_chat_agent initializes a chat agent designed to interact using a structured prompt and tools
-# # It combines the language model (llm), tools, and prompt to create an interactive agent
-# agent = create_structured_chat_agent(llm=llm, tools=tools, prompt=prompt)
-
-# # AgentExecutor is responsible for managing the interaction between the user input, the agent, and the tools
-# # It also handles memory to ensure context is maintained throughout the conversation
-# agent_executor = AgentExecutor.from_agent_and_tools(
-#     agent=agent,
-#     tools=tools,
-#     verbose=True,
-#     memory=memory,  # Use the conversation memory to maintain context
-#     handle_parsing_errors=True,  # Handle any parsing errors gracefully
-# )
-
-# # Initial system message to set the context for the chat
-# # SystemMessage is used to define a message from the system to the agent, setting initial instructions or context
-# initial_message = "You are an AI assistant that can provide helpful answers using available tools.\nIf you are unable to answer, you can use the following tools: Time and Wikipedia."
-# memory.chat_memory.add_message(SystemMessage(content=initial_message))
-
-# # Chat Loop to interact with the user
-# while True:
-#     user_input = input("User: ")
-#     if user_input.lower() == "exit":
-#         break
-
-#     # Add the user's message to the conversation memory
-#     memory.chat_memory.add_message(HumanMessage(content=user_input))
-
-#     # Invoke the agent with the user input and the current chat history
-#     response = agent_executor.invoke({"input": user_input})
-#     print("Bot:", response["output"])
-
-#     # Add the agent's response to the conversation memory
-#     memory.chat_memory.add_message(AIMessage(content=response["output"]))
-    
 from dotenv import load_dotenv
 from langchain import hub
 from langchain.agents import AgentExecutor, create_structured_chat_agent
@@ -117,36 +5,61 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.tools import Tool
 from langchain_openai import ChatOpenAI
 from langchain.memory import ConversationBufferWindowMemory
-from flask_cors import CORS
 import os
-from flask import Flask, request, jsonify, render_template # Import Flask for the web server
-# Load environment variables from .env file (ensure .env file exists in your project)
+from flask import Flask, request, jsonify, render_template, redirect, url_for, session
+from flask_bcrypt import Bcrypt
+from flask_cors import CORS  # Import Flask-CORS
+import sqlite3
+ 
+# Load environment variables
 load_dotenv()
-
+ 
 # Initialize Flask app
 app = Flask(__name__)
-
-CORS(app)
-
+app.secret_key = "your_secret_key"  # Update with a secure key
+bcrypt = Bcrypt(app)
+ 
+# Enable CORS for the entire app
+CORS(app)  # Allow all origins by default
+ 
+# If you want to restrict CORS to specific origins, use:
+# CORS(app, resources={r"/*": {"origins": ["http://your-allowed-origin.com"]}})
+ 
+# SQLite database setup
+DB_NAME = "chatbot_users.db"
+ 
+# Create the database and user table if not exists
+def init_db():
+    with sqlite3.connect(DB_NAME) as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL
+        )
+        """)
+        conn.commit()
+ 
+init_db()
+ 
 # Define Tools
 def get_current_time(*args, **kwargs):
     """Returns the current time in H:MM AM/PM format."""
     import datetime
     now = datetime.datetime.now()
     return now.strftime("%I:%M %p")
-
-
+ 
+ 
 def search_wikipedia(query):
     """Searches Wikipedia and returns the summary of the first result."""
     from wikipedia import summary
-
+ 
     try:
-        # Limit to two sentences for brevity
         return summary(query, sentences=2)
     except Exception as e:
         return f"I couldn't find any information on that. Error: {str(e)}"
-
-# Define the tools that the agent can use
+ 
 tools = [
     Tool(
         name="Time",
@@ -159,101 +72,129 @@ tools = [
         description="Useful for when you need to know information about a topic.",
     ),
 ]
-
-# Load the correct JSON Chat Prompt from the hub
+ 
+# Chatbot setup
 prompt = hub.pull("hwchase17/structured-chat-agent")
 
-# Initialize a ChatOpenAI model
-llm = ChatOpenAI(model="gpt-4")
 
-# Memory setup: ConversationBufferWindowMemory stores the conversation history, allowing the agent to maintain context
+
+
+### PART 2
+
+llm = ChatOpenAI(model="gpt-4")
 memory = ConversationBufferWindowMemory(
     memory_key="chat_history",
     return_messages=True,
-    k=5  # Specify how many past interactions to keep in memory
+    k=5
 )
-
-# Create a structured Chat Agent with tools and memory
 agent = create_structured_chat_agent(llm=llm, tools=tools, prompt=prompt)
-
-# AgentExecutor is responsible for managing the interaction between the user input, the agent, and the tools
 agent_executor = AgentExecutor.from_agent_and_tools(
     agent=agent,
     tools=tools,
     verbose=True,
-    memory=memory,  # Use the conversation memory to maintain context
-    handle_parsing_errors=True,  # Handle any parsing errors gracefully
+    memory=memory,
+    handle_parsing_errors=True,
     max_iterations=20,
 )
 
-# Initial system message to set the context for the chat
+
+##defines a system message that is added to the memory of the chatbot. 
+##It serves as an initial instruction to the AI assistant about its role and the tools it has at its disposal.
 initial_message = (
     "You are an AI assistant that can provide helpful answers using available tools.\n"
     "If you are unable to answer, you can use the following tools: Time and Wikipedia."
 )
 memory.chat_memory.add_message(SystemMessage(content=initial_message))
-
+ 
+# Routes
 @app.route("/")
 def index():
-    return render_template("chat.html")
+    if "username" in session:
+        return redirect(url_for("chat"))
+    return render_template("login.html")
+ 
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        username = request.form["username"]
+        password = request.form["password"]
+ 
+        with sqlite3.connect(DB_NAME) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT password FROM users WHERE username = ?", (username,))
+            user = cursor.fetchone()
+ 
+        if user and bcrypt.check_password_hash(user[0], password):
+            session["username"] = username
+            return redirect(url_for("chat"))
+        else:
+            return render_template("login.html", error="Invalid username or password")
+    return render_template("login.html")
+
+ 
 
 
-@app.route("/chat", methods=["POST"])
+ #### PArt 3
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if request.method == "POST":
+        username = request.form["username"]
+        password = request.form["password"]
+        hashed_password = bcrypt.generate_password_hash(password).decode("utf-8")
+ 
+        try:
+            with sqlite3.connect(DB_NAME) as conn:
+                cursor = conn.cursor()
+
+                cursor.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, hashed_password))
+                conn.commit()
+            return redirect(url_for("login"))
+        except sqlite3.IntegrityError:
+            return render_template("register.html", error="Username already exists")
+    return render_template("register.html")
+ 
+
+ 
+@app.route("/chat")
 def chat():
+    if "username" not in session:
+        return redirect(url_for("login"))
+    return render_template("chat.html")
+ 
+@app.route("/logout")
+def logout():
+    session.pop("username", None)
+    return redirect(url_for("login"))
+
+
+@app.route("/current_time", methods=["GET"])
+def current_time():
+    time = get_current_time()  # Get the current time from the function
+    return jsonify({"current_time": time})
+ 
+@app.route("/chat", methods=["POST"])
+def chat_api():
+    if "username" not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+ 
     try:
-        # Get user input from the HTTP request body
         user_input = request.get_json().get("input")
         if not user_input:
             return jsonify({"error": "No input provided"}), 400
-        
-        # Add the user's message to the conversation memory
+ 
         memory.chat_memory.add_message(HumanMessage(content=user_input))
-
-        # Invoke the agent with the user input and the current chat history
         response = agent_executor.invoke({"input": user_input})
-
-        # Debug: Check the response structure
-        print(f"Agent Response: {response}")
-
-        # Ensure the response contains the 'output' key
+ 
         if "output" not in response:
             return jsonify({"error": "No output from agent"}), 500
-
-        # Add the agent's response to the conversation memory
+ 
         memory.chat_memory.add_message(AIMessage(content=response["output"]))
-
-        # Return the agent's response in the HTTP response
         return jsonify({"response": response["output"]})
-
+ 
     except Exception as e:
-        # General error handling
         print(f"Error: {str(e)}")
         return jsonify({"error": f"Internal server error: {str(e)}"}), 500
-
-
+ 
 if __name__ == "__main__":
-    # Run the Flask web server
     app.run(host="0.0.0.0", port=8125)
-
-# # Start Chat Loop for interactive conversation
-# def run_chat():
-#     print("Chatbot is running. Type 'exit' to end the conversation.")
-#     while True:
-#         user_input = input("User: ")
-
-#         if user_input.lower() == "exit":
-#             print("Ending conversation. Goodbye!")
-#             break
-
-#         # Add the user's message to the conversation memory
-#         memory.chat_memory.add_message(HumanMessage(content=user_input))
-
-#         # Invoke the agent with the user input and the current chat history
-#         response = agent_executor.invoke({"input": user_input})
-#         print("Bot:", response["output"])
-
-#         # Add the agent's response to the conversation memory
-#         memory.chat_memory.add_message(AIMessage(content=response["output"]))
-
-# if __name__ == "__main__":
-#     run_chat()
+ 
