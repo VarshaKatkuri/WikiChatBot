@@ -1,5 +1,7 @@
 Flask==3.1.0
 flask-cors
+Flask-SQLAlchemy
+werkzeug
 langchain==0.3.12
 langchain-openai
 wikipedia
